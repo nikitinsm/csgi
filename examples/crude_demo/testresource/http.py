@@ -7,7 +7,10 @@ def _500( env, read, write ):
     write( '<html><body>500 - Internal server error </body></html>' )
 
 class Hello:
-
+    
+    def __init__(self, *args, **kwargs):
+        pass
+    
     def __call__( self, env, read, write ):
         body = ()
         if env['http']['method'] == 'POST':
