@@ -1,58 +1,29 @@
 import os
-import re
 import logging
 
-from gevent import socket, spawn, joinall, sleep
+from gevent import socket, spawn, sleep
 from gevent import Timeout
 from gevent.event import AsyncResult, Event
+
+from .utils import parse_socket_address, cached_property
+
+
+__all__ = \
+    ( 'Connect'
+    , 'Connection'
+    , 'Listen'
+    , 'Socket'
+    )
 
 
 log = logging.getLogger(__name__)
 
 
-class Undefined(object):
-    """
-    @TODO: move from here as it represent date type not code
-    """
-    pass
-
-
-def deepcopydict(org):
-    """
-    much, much faster than deepcopy, for a dict of the simple python types.
-    @TODO: move from here as it represent utility functionality
-    """
-    out = org.copy()
-    for k, v in org.iteritems():
-        if isinstance(v, dict):
-            out[k] = deepcopydict(v)
-        elif isinstance(v, list):
-            out[k] = v[:]
-
-    return out
-
-
-re_host_tcp = re.compile(r'^(tcp):\/\/([a-z\.]+|([0-9]+\.){3}[0-9]+):([0-9]+)$', re.I)
-re_host_ipc = re.compile(r'^(ipc):\/\/(.*)$', re.I)
-
-
-def parse_socket_address(address):
-    port = None
-    m = re_host_tcp.match(address)
-    if m:
-        protocol, host, waste, port = m.groups()
-        port = int(port)
-    else:
-        m = re_host_ipc.match(address)
-        if not m:
-            raise SyntaxError('%s is not a valid address ( (tcp://host[:port]|ipc://file) is required )' % address)
-        protocol, host = m.groups()
-
-    return protocol.lower(), host, port
-
-
 class Socket(object):
-    # TODO: move user, group into ipc address query string
+    """
+    @todo: move user, group into ipc address query string
+    """
+    
     def __init__(self, address, user=None, backlog=255):
         self.listeningsock = None
         self.address = address
@@ -103,7 +74,8 @@ class Socket(object):
 
         self.listeningsock = s
 
-        log.info("Listening on %s (%s) ..." % (self.address, self))
+        #log.info("Listening on %s (%s) ..." % (self.address, self))
+        # print "Listening on %s (%s) ..." % (self.address, self)
         exec_count = 0
 
         while True:
@@ -112,14 +84,17 @@ class Socket(object):
                 connection = Connection(socket.socket(_sock=connection), self._remove_connection)
                 self.connections.add(connection)
                 yield connection, addr
-            except:
+            except Exception as e:
                 if not self.listeningsock:
                     break
-                log.exception('Could not accept a connection...')
+                #log.exception('Could not accept a connection...')
+                # print 'Could not accept a connection...'
+                # print traceback.print_exc()
                 sleep(0.5 * exec_count)
                 exec_count += 1
             else:
-                log.debug("New connection at %s" % self.address)
+                #log.debug("New connection at %s" % self.address)
+                # print "New connection at %s" % self.address
                 exec_count = 0
 
     def close(self):
@@ -135,58 +110,64 @@ class Socket(object):
             if self.protocol == 'ipc':
                 try:
                     os.remove(self.host)
-                except OSError:
-                    pass
+                except OSError as e:
+                    raise e
 
     def _remove_connection(self, connection):
         self.connections.remove(connection)
 
 
-# this should just behave like a file-like obj
 class Connection(object):
+    
     _has_wfile = False
     _has_rfile = False
 
     timeout_read = 1
 
-    def __init__(self, gsocket, close_cb=lambda me: None):
+    def __init__(self, gsocket, close_callback=lambda me: None):
         self._sock = gsocket
 
         self.flush = self.wfile.flush
         self.write = self.wfile.write
         self.read = self.rfile.read
 
-        self.close_cb = close_cb
+        self.close_callback = close_callback
+        
+    def __str__(self):
+        socket_name = self._sock.getsockname()
+        if type(socket_name) is tuple:
+            socket_name = ':'.join(map(str, socket_name))
 
-    @property
+        peer_name = self._sock.getpeername()
+        if type(peer_name) is tuple:
+            peer_name = ':'.join(map(str, peer_name))
+        return 'Connection at %s from %s' % (socket_name, peer_name)
+
+    @cached_property
     def rfile(self):
-        """
-        @todo: looks a but ugly, replace with cached property
-        """
-        self.rfile = self._sock.makefile('rb', -1)
         self._has_rfile = True
-        return self.rfile
+        return self._sock.makefile('rb', -1)
 
-    @property
+    @cached_property
     def wfile(self):
-        """
-        @todo: looks a but ugly, replace with cached property
-        """
-        self.wfile = self._sock.makefile('wb', 0)
         self._has_wfile = True
-        return self.wfile
+        return self._sock.makefile('wb', 0)
 
-    # somehow, the file-like obj does not release read locks on clients
-    # when connection was closed locally, so just interrupt it frequently
-    # which is still much faster than concatinating
     def readline(self, limit=16384):
+        """
+        somehow, the file-like obj does not release read locks on clients
+        when connection was closed locally, so just interrupt it frequently
+        which is still much faster than concatenating
+        """
         while not self.rfile.closed:
             try:
                 with Timeout(self.timeout_read):
                     return self.rfile.readline(limit)
-            except:
-                # @todo: Too broad, hiding all exceptions is evil
+            except Exception as e:
+                print 'ERROR!!!', type(e), e
                 pass
+                # @todo: handle error
+                #raise e
         return ''
 
     def __iter__(self):
@@ -200,19 +181,19 @@ class Connection(object):
         if self._has_rfile:
             try:
                 self.rfile.close()
-            except socket.error:
-                pass
+            except socket.error as e:
+                raise e
         if self._has_wfile:
             try:
                 self.wfile.close()
-            except socket.error:
-                pass
+            except socket.error as e:
+                raise e
 
         self._sock.shutdown(socket.SHUT_RDWR)
         self._sock._sock.close()
         self._sock.close()
 
-        self.close_cb(self)
+        self.close_callback(self)
 
 
 class Connect(object):
@@ -225,13 +206,13 @@ class Connect(object):
     def __call__(self, *args, **kwargs):
         _socket = self.socket.connect()
         env = self.create_env()
-        env.update \
-            ( {'socket': self.socket
+        env.update\
+            ( { 'socket': self.socket
               , 'connection': _socket
               , 'localclient': {'args': args, 'kwargs': kwargs, 'result': AsyncResult()}
             } )
 
-        spawn \
+        spawn\
             ( self.handler
             , env
             , _socket
@@ -263,20 +244,25 @@ class Listen(object):
                 , socket=self.socket
                 , connection=connection
                 )
-
             self.handler(env, connection)
         except Exception as e:
-            if not isinstance(e, socket.error) or e.errno != 32:
-                log.exception('Could not handle connection at %s from %s' % (self.socket, address ))
-            else:
-                log.debug('Remote client lost.')
+            print 'ERROR!!!', type(e), e
+            pass
+            #raise e
+            # if not isinstance(e, socket.error) or e.errno != 32:
+            #     #log.exception('Could not handle connection at %s from %s' % (self.socket, address ))
+            #     # print 'Could not handle connection at %s from %s' % (self.socket, address )
+            # else:
+            #     #log.debug('Remote client lost.')
+            #     # print 'Remote client lost.'
         finally:
             connection.close()
 
     def stop(self):
         if not self.connected:
             return
-        log.info('Stop listening at %s (%s)' % (self.socket.address, self))
+        #log.info('Stop listening at %s (%s)' % (self.socket.address, self))
+        # print 'Stop listening at %s (%s)' % (self.socket.address, self)
         self.socket.close()
 
         self._disconnected.set()
@@ -284,207 +270,3 @@ class Listen(object):
 
     def wait_for_disconnect(self):
         return self._disconnected.wait()
-
-
-class Env(object):
-    """
-    @todo: apply singleton?
-    """
-    
-    class NotFound(Exception):
-        """
-        @todo: move NotFound *handling* elsewere
-        """
-
-        def __init__(self, what):
-            self.what = what
-            Exception.__init__(self, what)
-
-    class Router(object):
-
-        def __init__(self, *handlers, **params):
-            self.handler = []
-            self.named_routes = {}
-
-            routes = set()
-
-            for i in range(len(handlers)):
-                (key, handler) = handlers[i]
-                if key in routes:
-                    raise SyntaxError('Routes must be unique')
-
-                routes.add(key)
-                if isinstance(key, basestring):
-                    self.named_routes[key] = handler
-                else:
-                    if hasattr(key, 'match'):
-                        key = key.match
-                    if not callable(key):
-                        raise SyntaxError(
-                            'Invalid route - must be a string, callable or an object with a match() method')
-                    self.handler.append((key, handler ))
-
-            self.by = params.pop('by')
-            self.each = params.pop('each', None)
-            self.on_not_found = params.pop\
-                ( 'on_not_found'
-                , lambda env, read, write: self._log_error('route not found .. env: %s' % (env,))
-                )
-
-            if params:
-                raise SyntaxError('Invalid keyword arguments: %s' % params.keys())
-
-        def __call__(self, env, read, write):
-            value = self.by(env)
-            handler = self.named_routes.get(value, None)
-
-            env['route'] = {'path': value}
-
-            if not handler:
-                for (key, handler_) in self.handler:
-                    match = key(value)
-                    if match:
-                        groups = match.groupdict()
-                        if groups:
-                            env['route'].update(groups)
-
-                        handler = handler_
-                        break
-
-            if not handler:
-                self.on_not_found(env, read, write)
-                return
-
-            if callable(self.each):
-                env['route']['handler'] = handler
-                self.each(env, read, write)
-            else:
-                try:
-                    handler(env, read, write)
-                except Env.NotFound:
-                    self.on_not_found(env, read, write)
-
-        def _log_error(self, error):
-            log.error(error)
-
-    def __call__(self, *args, **kwargs):
-        env = args[0]
-        value = env
-        for part in self.path:
-            value = value[part]
-        if callable(value):
-            return value(*args, **kwargs)
-        else:
-            return value
-
-    def __init__(self, path=None, name=None):
-        if path is None:
-            self.path = ()
-        else:
-            self.path = path + (name,)
-
-    def __getitem__(self, name):
-        return Env(self.path, name)
-
-    def set(self, updater, handler):
-        return Env.Setter(self.path, updater, handler)
-
-    class Setter(object):
-        def __init__(self, path, updater, handler):
-            self.path = path
-            self.updater = updater
-            self.handler = handler
-
-        def __call__(self, env, r, w):
-            env_to_update = env
-            value = self.updater(env)
-
-            if self.path:
-                for part in self.path[:-1]:
-                    env_to_update = env_to_update[part]
-                env_to_update[self.path[-1]] = value
-            else:
-                env = value
-
-            self.handler(env, r, w)
-
-
-class ArgRouter(object):
-    def __init__(self, *handler):
-        self.handler = {}
-        handler = list(handler)
-        lastValue = handler.pop(0)
-
-        i = 0
-        while handler:
-            value = handler.pop(0)
-            if i % 2 == 0:
-                self.handler[lastValue] = value
-            lastValue = value
-            i += 1
-
-    def __call__(self, env, read, write):
-        for data in read():
-            args, kwargs = data
-            args = list(args)
-            path = args.pop(0)
-
-            rpc_env = env.get('rpc', None)
-            if rpc_env is None:
-                env['rpc'] = {'path': path}
-            else:
-                env['rpc']['path'] = path
-
-            self.handler[path](env, lambda: (( args, kwargs ),), write)
-
-
-from inspect import isclass
-
-
-class LazyResource(object):
-    def __init__(self, module, *args, **kwargs):
-        self.module = module
-        self.loaded = {}
-        self.args = args
-        self.kwargs = kwargs
-
-        if hasattr(module, 'init'):
-            module.init(*args, **kwargs)
-
-    def __getattr__(self, name):
-        if not name in self.loaded:
-            try:
-                __import__('%s.%s' % (self.module.__name__, name))
-                value = LazyResource \
-                    ( getattr(self.module, name)
-                    , *self.args, **self.kwargs
-                    )
-
-            except ImportError:
-                if not hasattr(self.module, name):
-                    raise # @todo: raise what ?
-                value = getattr(self.module, name)
-            if isclass(value):
-                value = value(*self.args, **self.kwargs)
-
-            self.loaded[name] = value
-
-        return self.loaded[name]
-
-
-class Farm(object):
-    # @todo: rename maybe bundle ?
-    
-    def __init__(self, *servers):
-        self.servers = servers
-
-    def start(self):
-        jobs = []
-        for server in self.servers:
-            jobs.append(spawn(server.start))
-
-        joinall(jobs)
-
-    def stop(self):
-        for server in self.servers:
-            server.stop()

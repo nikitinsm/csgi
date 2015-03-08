@@ -2,11 +2,17 @@ def _404( env, read, write ):
     env['http']['status'] = 404
     write( '<html><body>404 - Not found</body></html>' )
 
+
 def _500( env, read, write ):
     env['http']['status'] = 500
     write( '<html><body>500 - Internal server error </body></html>' )
 
+
 class Hello(object):
+    
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
 
     def __call__( self, env, read, write ):
         body = ()

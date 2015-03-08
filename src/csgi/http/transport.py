@@ -6,8 +6,13 @@ from urllib import unquote
 from gevent.pywsgi import _BAD_REQUEST_RESPONSE, _CONTINUE_RESPONSE, MAX_REQUEST_LINE, format_date_time
 
 
+__all__ = \
+    ( 'Transport'
+    , )
+
+
 class Transport(object):
-    # TODO: client
+    # @todo: client
     MessageClass = Message
     log = logging.getLogger('%s.HTTP' % __name__)
 
@@ -52,8 +57,11 @@ class Transport(object):
             env_http['_read'] = read = lambda: self._read(env_http, connection)
             env_http['_write'] = write = lambda data: self._write(env_http, connection, data)
             try:
+                stime = time.time()
                 self.handler(env, read, write)
-            except:
+                # print '[%s] %s [%.6f]' % (self.on_handler_fail, connection, time.time() - stime)
+            except Exception as e:
+                print 'ERROR!!!', type(e), e
                 # @todo: Too broad !!!
                 env_http['has_error'] = has_error = True
                 env_http['keepalive'] = False

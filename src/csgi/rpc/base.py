@@ -5,7 +5,13 @@ from gevent import spawn
 from gevent.event import Event, AsyncResult
 from gevent.queue import Queue
 
-from .core import deepcopydict
+from csgi.utils import deepcopydict
+
+
+__all__ = \
+    ( 'Call'
+    , 'LongPoll'
+    )
 
 
 log = logging.getLogger(__name__)

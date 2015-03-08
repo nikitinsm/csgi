@@ -4,8 +4,16 @@
 @todo: decomposite
 """
 import logging
-import json as _json
+import json as builtin_json
 import datetime
+
+from csgi.utils import Undefined
+
+
+__all__ = \
+    ( 'Parser'
+    , )
+
 
 __has_rfc3339__ = True
 try:
@@ -27,9 +35,6 @@ JSONRPC_VERSION_2_0 = "2.0"  # http://groups.google.com/group/json-rpc/web/json-
 # @todo: not supported yet
 # JSONRPC_VERSION_1_1 = "1.1"   # http://groups.google.com/group/json-rpc/web/json-rpc-1-1-wd
 
-
-class Undefined(object):
-    pass
 
 
 class JSONRPC_BaseError(BaseException):
@@ -107,14 +112,14 @@ def defaultErrorConstructor(exceptionObj):
     return exceptionObj.code, exceptionObj.message, extra
 
 
-class JSONDateTimeEncoder(_json.JSONEncoder):
+class JSONDateTimeEncoder(builtin_json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, (datetime.date, datetime.datetime)):
             if __has_rfc3339__:
                 return rfc3339(obj, utc=True, use_system_timezone=False)
             return obj.isoformat()
         else:
-            return _json.JSONEncoder.default(self, obj)
+            return builtin_json.JSONEncoder.default(self, obj)
 
 
 def datetime_decoder(d):
@@ -151,12 +156,12 @@ def datetime_decoder(d):
         return dict(result)
 
 
-loads = lambda text: _json.loads(text, object_hook=datetime_decoder)
-dumps = lambda obj: _json.dumps(obj, cls=JSONDateTimeEncoder)
+loads = lambda text: builtin_json.loads(text, object_hook=datetime_decoder)
+dumps = lambda obj: builtin_json.dumps(obj, cls=JSONDateTimeEncoder)
 
 import types
 """
-@todo: WTF? - remove looks like too ugly
+@todo: WTF? - remove looks like too ugly shit
 """
 json = types.ModuleType('jsonrpcio.json')
 

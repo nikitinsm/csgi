@@ -3,6 +3,10 @@ import logging
 log = logging.getLogger(__name__)
 
 class EchoHandler(object):
+    
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
 
     def echo( self, env, arg ):
         return arg
@@ -30,6 +34,10 @@ class EchoHandler(object):
 
 class Worker(object):
     worker = None
+    
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
 
     def _handle_cmd( self, message, channel ):
         if not message == 'stop':

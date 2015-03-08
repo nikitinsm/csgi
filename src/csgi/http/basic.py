@@ -1,4 +1,9 @@
-from ..core import Env
+from csgi.base.exceptions import NotFound
+
+
+__all__ = \
+    ( 'Method'
+    , )
 
 
 class Method(object):
@@ -21,4 +26,4 @@ class Method(object):
             self._on_not_found(env, read, write)
 
     def _on_not_found(self, env, read, write):
-        raise Env.NotFound(env['http']['method'])
+        raise NotFound(env['http']['method'])

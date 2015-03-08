@@ -1,4 +1,3 @@
-__import__('pkg_resources').declare_namespace(__name__)
-
-from .transport import Transport
-from .basic import Method
+from .basic import *
+from .transport import *
+from .wsgi import *

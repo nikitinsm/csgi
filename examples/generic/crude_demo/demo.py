@@ -47,8 +47,8 @@ config['workerclient'] = Connect\
 config['worker'] = workserver = Listen\
     ( Socket( 'ipc://worker.sock' )
     , LineTransport( marshal.Json( event.Channel\
-            ( { 'workerchannel': resource.Worker }
-            ) ) )
+        ( { 'workerchannel': resource.Worker }
+        ) ) )
     )
 
 services = env.Router\
@@ -78,7 +78,7 @@ pubsub = jsonrpc.Server\
     )
 
 config['server'] = server = Listen\
-    ( Socket( 'tcp://localhost:8081')
+    ( Socket( 'tcp://0.0.0.0:8081')
     , http.Transport\
         ( env.Router\
             ( ( '/', resource.http.Hello )
@@ -115,9 +115,9 @@ def _clienttest():
     client.on_disconnect( lambda: log.info('connection closed') )
 
 server = Farm( server, workserver )
-daemon.exit_hooks.append( server.stop )
-with daemon:
-    spawn_later( 1, _clienttest )
-    #import cProfile
-    #cProfile.run('server.start()')
-    server.start()
+# daemon.exit_hooks.append( server.stop )
+# with daemon:
+#     spawn_later( 1, _clienttest )
+#     #import cProfile
+#     #cProfile.run('server.start()')
+server.start()

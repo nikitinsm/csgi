@@ -3,6 +3,11 @@ import logging
 from . import jsonrpcio
 
 
+__all__ = \
+    ( 'JsonRpcServer'
+    , )
+
+
 log = logging.getLogger(__name__)
 
 
@@ -15,7 +20,7 @@ def _on_handler_fail(env, read, write):
         )
 
 
-class Server(object):
+class JsonRpcServer(object):
     def __init__(self, handler, on_handler_fail=None, loads=None, dumps=None):
         self.handler = handler
         self._nowrite = lambda data: None
@@ -29,11 +34,7 @@ class Server(object):
     def __call__(self, env, read, write):
         env['rpc'] = {'type': 'jsonrpc'}
         for request in read():
-            ( success
-            , data
-            , parser
-            , isBatch
-            ) = self.parser.decodeRequest(request)
+            success, data, parser, isBatch = self.parser.decodeRequest(request)
             env['rpc']['isBatch'] = isBatch
 
             if not success:
@@ -43,6 +44,7 @@ class Server(object):
             if isBatch:
                 i = iter(data)
                 for partial in i:
+                    # @todo: check i.send
                     self._call_handler(env, partial, i.send, write, parser)
 
                 write(data.encode())

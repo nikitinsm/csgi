@@ -1,7 +1,7 @@
 from gevent import monkey
 monkey.patch_all()
 
-from csgi import Socket, Listen, env, http
+from csgi import Socket, Listen, Router, env, http
 
 
 def hello_world(env, read, write):
@@ -12,7 +12,7 @@ url_conf = \
     ( ('/', hello_world)
     , )
 
-route = env.Router(*url_conf, by=env['http']['path'])
+route = Router(*url_conf, by=env['http']['path'])
 transport = http.Transport(route)
 
 socket = Socket('tcp://0.0.0.0:9000')

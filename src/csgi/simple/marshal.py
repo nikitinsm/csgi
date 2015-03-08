@@ -1,6 +1,11 @@
 from .. import jsonrpcio
 
 
+__all__ = \
+    ( 'Json'
+    , )
+
+
 class Json(object):
     def __init__(self, handler, loads=None, dumps=None):
         self.handler = handler

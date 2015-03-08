@@ -1,2 +1,4 @@
+* Make code clean, understandable for newbies and discoverable through most IDE's
 * Websocket server
 * Combine LongPoll and Websocket into SocketIO server
+* Splite definitions of application environment in csgi.__init__ and request (Connection level) Connection.create_env()
