@@ -11,11 +11,10 @@ from csgi.rpc import Call, JsonRpcServer
 
 def hello_world(env, arg='World'):
     """
-    request ro http://0.0.0.0:9000/ 
-    with POST data:
-        {"method": "hello_world", "id": "1", "params": []}
-    or:
-        {"method": "hello_world", "id": "1", "params": ["CSGI"]}
+    Make request to http://0.0.0.0:9000/ with POST data:
+            {"method": "hello_world", "id": "1", "params": []}
+        or:
+            {"method": "hello_world", "id": "1", "params": ["CSGI"]}
     """
     return u'Hello {0}!'.format(arg)
 
