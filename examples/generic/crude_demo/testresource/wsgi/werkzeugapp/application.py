@@ -2,19 +2,18 @@ from sqlalchemy import create_engine
 from werkzeug.wrappers import Request
 from werkzeug.wsgi import ClosingIterator, SharedDataMiddleware
 from werkzeug.exceptions import HTTPException, NotFound
-from .utils import STATIC_PATH, session, local, local_manager, \
-     metadata, url_map
+from .utils import STATIC_PATH, session, local, local_manager, metadata, url_map
 
 from . import views
 
-class Shorty(object):
 
+class Shorty(object):
     def __init__(self, config):
         local.application = self
         self.database_engine = create_engine(config['db_uri'], convert_unicode=True)
 
         self.dispatch = SharedDataMiddleware(self.dispatch, {
-            '/static':  STATIC_PATH
+            '/static': STATIC_PATH
         })
 
     def init_database(self):

@@ -1,8 +1,9 @@
 from werkzeug.utils import redirect
 from werkzeug.exceptions import NotFound
 from .utils import session, Pagination, render_template, expose, \
-     validate_url, url_for
+    validate_url, url_for
 from .models import URL
+
 
 @expose('/')
 def new(request):
@@ -25,6 +26,7 @@ def new(request):
             return redirect(url_for('display', uid=uid))
     return render_template('new.html', error=error, url=url)
 
+
 @expose('/display/<uid>')
 def display(request, uid):
     url = URL.query.get(uid)
@@ -32,12 +34,14 @@ def display(request, uid):
         raise NotFound()
     return render_template('display.html', url=url)
 
+
 @expose('/u/<uid>')
 def link(request, uid):
     url = URL.query.get(uid)
     if not url:
         raise NotFound()
     return redirect(url.target, 301)
+
 
 @expose('/list/', defaults={'page': 1})
 @expose('/list/<int:page>')
@@ -47,6 +51,7 @@ def list(request, page):
     if pagination.page > 1 and not pagination.entries:
         raise NotFound()
     return render_template('list.html', pagination=pagination)
+
 
 def not_found(request):
     return render_template('not_found.html')

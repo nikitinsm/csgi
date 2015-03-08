@@ -1,14 +1,18 @@
 from datetime import datetime
+
 from sqlalchemy import Table, Column, String, Boolean, DateTime
 from sqlalchemy.orm import mapper
 from .utils import session, metadata, url_for, get_random_uid
 
-url_table = Table('urls', metadata,
-    Column('uid', String(140), primary_key=True),
-    Column('target', String(500)),
-    Column('added', DateTime),
-    Column('public', Boolean)
-)
+
+url_table = Table\
+    ( 'urls', metadata
+    , Column('uid', String(140), primary_key=True)
+    , Column('target', String(500))
+    , Column('added', DateTime)
+    , Column('public', Boolean)
+    )
+
 
 class URL(object):
     query = session.query_property()
@@ -31,5 +35,6 @@ class URL(object):
 
     def __repr__(self):
         return '<URL %r>' % self.uid
+
 
 mapper(URL, url_table)

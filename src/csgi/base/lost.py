@@ -2,6 +2,13 @@ import gevent
 import inspect
 
 
+__all__ = \
+    ( 'LazyResource'
+    , 'Bundle'
+    , 'ArgRouter'
+    )
+
+
 class LazyResource(object):
     """
     @todo: Is it really needed? it breaks object discovering in IDE
