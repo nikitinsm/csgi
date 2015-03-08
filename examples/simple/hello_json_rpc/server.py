@@ -5,6 +5,10 @@ from csgi import Socket, Listen, Router, env, http
 from csgi.rpc import Call, JsonRpcServer
 
 
+#
+# 1. Define rpc callable
+#
+
 def hello_world(env, arg='World'):
     """
     request ro http://0.0.0.0:9000/ 
@@ -13,13 +17,24 @@ def hello_world(env, arg='World'):
     return u'Hello {0}!'.format(arg)
 
 
-api_router = Router\
+#
+# 2. Configure api
+#
+
+api_url_conf = \
     ( ('hello_world', hello_world)
+    , )
+api_router = Router\
+    ( *api_url_conf
     , by=env['rpc']['path']
     , each=Call(env['route']['handler'])
     )
-
 api_server = JsonRpcServer(api_router)
+
+
+#
+# 3. Configure transport layer
+#
 
 url_conf = \
     ( ('/', api_server)
@@ -28,10 +43,13 @@ url_conf = \
 route = Router(*url_conf, by=env['http']['path'])
 transport = http.Transport(route)
 
+
+#
+# 4. Start server
+#
+
 socket = Socket('tcp://0.0.0.0:9000')
-
 server = Listen(socket, transport)
-
 
 if __name__ == '__main__':
     server.start()
