@@ -34,6 +34,7 @@ class JsonRpcServer(object):
     def __call__(self, env, read, write):
         env['rpc'] = {'type': 'jsonrpc'}
         for request in read():
+            # @todo: empty requests hangs here
             success, data, parser, isBatch = self.parser.decodeRequest(request)
             env['rpc']['isBatch'] = isBatch
 
