@@ -185,9 +185,7 @@ class Connection(object):
                 with Timeout(self.timeout_read):
                     return self.rfile.readline(limit)
             except:
-                """
-                @todo: Too broad, hiding all exceptions is evil
-                """
+                # @todo: Too broad, hiding all exceptions is evil
                 pass
         return ''
 
@@ -222,21 +220,21 @@ class Connect(object):
         self.socket = socket
         self.handler = handler
         self.create_env = create_env
-        self.connections = set()  # TODO the actual pool
+        self.connections = set()  # @todo: the actual pool
 
     def __call__(self, *args, **kwargs):
         _socket = self.socket.connect()
         env = self.create_env()
         env.update \
-            ({'socket': self.socket
-                , 'connection': _socket
-                , 'localclient': {'args': args, 'kwargs': kwargs, 'result': AsyncResult()}
-            })
+            ( {'socket': self.socket
+              , 'connection': _socket
+              , 'localclient': {'args': args, 'kwargs': kwargs, 'result': AsyncResult()}
+            } )
 
         spawn \
-            (self.handler
-             , env
-             , _socket
+            ( self.handler
+            , env
+            , _socket
             )
 
         return env['localclient']['result'].get()
@@ -254,16 +252,16 @@ class Listen(object):
     def start(self):
         self._disconnected = Event()
         self.connected = True
-        for (connection, address) in self.socket.accept():
+        for connection, address in self.socket.accept():
             spawn(self._handle_connection, connection, address)
 
     def _handle_connection(self, connection, address):
         try:
             env = self.create_env()
             env.update \
-                (remoteclient={'address': address}
-                 , socket=self.socket
-                 , connection=connection
+                ( remoteclient={'address': address}
+                , socket=self.socket
+                , connection=connection
                 )
 
             self.handler(env, connection)
@@ -328,9 +326,9 @@ class Env(object):
 
             self.by = params.pop('by')
             self.each = params.pop('each', None)
-            self.on_not_found = params.pop \
-                ('on_not_found'
-                 , lambda env, read, write: self._log_error('route not found .. env: %s' % (env,))
+            self.on_not_found = params.pop\
+                ( 'on_not_found'
+                , lambda env, read, write: self._log_error('route not found .. env: %s' % (env,))
                 )
 
             if params:
@@ -357,7 +355,7 @@ class Env(object):
                 self.on_not_found(env, read, write)
                 return
 
-            if self.each:
+            if callable(self.each):
                 env['route']['handler'] = handler
                 self.each(env, read, write)
             else:
@@ -422,7 +420,6 @@ class ArgRouter(object):
             value = handler.pop(0)
             if i % 2 == 0:
                 self.handler[lastValue] = value
-
             lastValue = value
             i += 1
 
@@ -458,17 +455,14 @@ class LazyResource(object):
         if not name in self.loaded:
             try:
                 __import__('%s.%s' % (self.module.__name__, name))
-
                 value = LazyResource \
-                    (getattr(self.module, name)
-                     , *self.args, **self.kwargs
+                    ( getattr(self.module, name)
+                    , *self.args, **self.kwargs
                     )
-
 
             except ImportError:
                 if not hasattr(self.module, name):
-                    raise
-
+                    raise # @todo: raise what ?
                 value = getattr(self.module, name)
             if isclass(value):
                 value = value(*self.args, **self.kwargs)
@@ -479,6 +473,8 @@ class LazyResource(object):
 
 
 class Farm(object):
+    # @todo: rename maybe bundle ?
+    
     def __init__(self, *servers):
         self.servers = servers
 
