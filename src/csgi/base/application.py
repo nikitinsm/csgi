@@ -90,7 +90,7 @@ class Setter(object):
         self.updater = updater
         self.handler = handler
 
-    def __call__(self, env, r, w):
+    def __call__(self, env, read, write):
         env_to_update = env
         value = self.updater(env)
 
@@ -101,14 +101,13 @@ class Setter(object):
         else:
             env = value
 
-        self.handler(env, r, w)
+        self.handler(env, read, write)
 
 
 class Env(object):
 
     def __call__(self, *args, **kwargs):
-        env = args[0]
-        value = env
+        value = args[0]
         for part in self.path:
             value = value[part]
         if callable(value):
@@ -127,6 +126,6 @@ class Env(object):
 
     def set(self, updater, handler):
         return Setter(self.path, updater, handler)
-    
-    
+
+
 env = Env()
