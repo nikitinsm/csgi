@@ -1,40 +1,42 @@
-from StringIO import StringIO
-
-import sys, gevent, logging
+import sys
+import gevent
+import logging
 
 from gevent import socket
+from StringIO import StringIO
+
 
 log = logging.getLogger(__name__)
+
 
 # since read() will potentially yield chunks and wsgi is not up for chunked
 # requests, we have to make a single stream out of it
 class Input(object):
-
     def __init__(self, read, chunked_input=False):
         self.reader = iter(read())
         self.current_chunk = None
-      
-    def read_rest( self, length, line=False ):
+
+    def read_rest(self, length, line=False):
         if self.current_chunk:
-            data = self.current_chunk.readline( length ) if line\
-                    else self.current_chunk.read( length )
+            data = self.current_chunk.readline(length) if line \
+                else self.current_chunk.read(length)
             if not data:
                 self.current_chunk = None
             else:
                 return data
         return ''
 
-    def read( self, length=None ):
+    def read(self, length=None):
         buffer = []
-        data = self.read_rest( length )
+        data = self.read_rest(length)
         if data:
             length -= len(data)
-            buffer.append( data )
+            buffer.append(data)
 
         if length is None:
             self.current_chunk = None
             for data in self.reader:
-                buffer.append( self.reader.next() )
+                buffer.append(self.reader.next())
         else:
             rest = None
             while True:
@@ -42,21 +44,21 @@ class Input(object):
                 if not v:
                     break
                 length -= len(v)
-                if length<=0:
-                    if length<0:
+                if length <= 0:
+                    if length < 0:
                         rest = v[(-length):]
                         v = v[:-length]
                     buffer.append(v)
                     break
-                buffer.append( v )
+                buffer.append(v)
 
             if rest:
-                self.current_chunk = StringIO( rest )
+                self.current_chunk = StringIO(rest)
 
-        return ''.join( buffer )
+        return ''.join(buffer)
 
-    def readline( self, length=None ):
-        data = self.read_rest( length, True )
+    def readline(self, length=None):
+        data = self.read_rest(length, True)
         if data:
             return data
 
@@ -64,40 +66,42 @@ class Input(object):
         if not v:
             return v
 
-        self.current_chunk = StringIO( v )
-        return self.current_chunk.readline( length )
+        self.current_chunk = StringIO(v)
+        return self.current_chunk.readline(length)
 
-    def readlines( self, hint=None ):
-        return list( self )
+    def readlines(self, hint=None):
+        return list(self)
 
-    def __iter__( self ):
+    def __iter__(self):
         return self
 
-    def next( self ):
+    def next(self):
         line = self.readline()
 
         if not line:
             raise StopIteration
         return line
 
-class Server:
-    _environ_software = \
-        'gevent/%d.%d Python/%d.%d' % (gevent.version_info[:2] + sys.version_info[:2])
 
-    def __init__( self, handler, approot=None ):
+class Server(object):
+    _environ_software = \
+        'gevent/{0}.{0} Python/{0}.{0}'.format(gevent.version_info[:2] + sys.version_info[:2])
+
+    def __init__(self, handler, approot=None):
         self.handler = handler
         self.approot = approot
         self.server_name = None
 
-    def __call__( self, env, read, write ):
+    def __call__(self, env, read, write):
         sock = env['socket']
-        if not hasattr(sock,'fqdn'):
-            sock.fqdn = getattr( sock, 'host', '' )
-            sock.port = getattr( sock, 'port', '' )
+        if not hasattr(sock, 'fqdn'):
+            sock.fqdn = getattr(sock, 'host', '')
+            sock.port = getattr(sock, 'port', '')
 
             try:
-                sock.fqdn = socket.getfqdn( sock.fqdn )
+                sock.fqdn = socket.getfqdn(sock.fqdn)
             except socket.error:
+                # @todo: error silented
                 pass
 
         env_http = env['http']
@@ -115,13 +119,12 @@ class Server:
             , 'wsgi.multiprocess': False
             , 'wsgi.run_once': False
             , 'wsgi.errors': sys.stderr
-            , 'wsgi.url_scheme': 'http' # TODO: https ( socket first )
+            , 'wsgi.url_scheme': 'http'  # @todo: https ( socket first )
             , 'csgi.env': env
             }
 
-        environ['SCRIPT_NAME'] = self.approot or env.get('route',{}).get('approot','')
-        environ['wsgi.input'] = Input( read, environ\
-                    .get('HTTP_TRANSFER_ENCODING', '').lower() == 'chunked' )
+        environ['SCRIPT_NAME'] = self.approot or env.get('route', {}).get('approot', '')
+        environ['wsgi.input'] = Input(read, environ.get('HTTP_TRANSFER_ENCODING', '').lower() == 'chunked')
 
         environ['PATH_INFO'] = env_http['path'][len(environ['SCRIPT_NAME']):]
         environ['QUERY_STRING'] = env_http['query']
@@ -134,8 +137,7 @@ class Server:
         if length:
             environ['CONTENT_LENGTH'] = length
 
-
-        for (key,value) in headers.items():
+        for (key, value) in headers.items():
             key = key.replace('-', '_').upper()
             if key not in ('CONTENT_TYPE', 'CONTENT_LENGTH'):
                 value = value.strip()
@@ -148,20 +150,22 @@ class Server:
                 else:
                     environ[key] = value
 
-        result = self.handler( environ, lambda status, headers, exc_info=None\
-            : self._start_response( env, write, status, headers, exc_info ) )
+        result = self.handler\
+            ( environ
+            , lambda status, headers, exc_info=None:
+                self._start_response(env, write, status, headers, exc_info)
+            )
 
         for data in result:
             if data:
                 write(data)
-
-
 
     def _start_response(self, env, write, status, headers, exc_info=None):
         if exc_info:
             try:
                 if env['http']['is_header_send']:
                     # Re-raise original exception if headers sent
+                    # @todo: what the fuck is it ?
                     raise exc_info[0], exc_info[1], exc_info[2]
             finally:
                 # Avoid dangling circular ref

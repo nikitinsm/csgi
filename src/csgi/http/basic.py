@@ -1,7 +1,8 @@
 from ..core import Env
 
-class Method:
-    def __init__( self, POST=None, GET=None, on_not_found=None ):
+
+class Method(object):
+    def __init__(self, POST=None, GET=None, on_not_found=None):
         self.handler = {}
         if POST:
             self.handler['POST'] = POST
@@ -11,13 +12,13 @@ class Method:
             on_not_found = self._on_not_found
         self.on_not_found = on_not_found
 
-    def __call__( self, env, read, write ):
+    def __call__(self, env, read, write):
         method = env['http']['method']
-        handler = self.handler.get( method, None )
-        if handler:
-            handler( env, read, write )
+        handler = self.handler.get(method, None)
+        if callable(handler):
+            handler(env, read, write)
         else:
-            self._on_not_found( env, read, write )
+            self._on_not_found(env, read, write)
 
-    def _on_not_found( self, env, read, write ):
-        raise Env.NotFound( env['http']['method'] )
+    def _on_not_found(self, env, read, write):
+        raise Env.NotFound(env['http']['method'])

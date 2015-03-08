@@ -6,7 +6,7 @@ def _500( env, read, write ):
     env['http']['status'] = 500
     write( '<html><body>500 - Internal server error </body></html>' )
 
-class Hello:
+class Hello(object):
 
     def __call__( self, env, read, write ):
         body = ()

@@ -1,6 +1,8 @@
 *.pyc
 *.sock
 *.egg-info
+*.iml
+.idea/
 pid
 log
 build

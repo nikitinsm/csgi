@@ -1,27 +1,27 @@
-from gevent.pywsgi import _BAD_REQUEST_RESPONSE, _CONTINUE_RESPONSE, MAX_REQUEST_LINE, format_date_time
+import time
+import logging
+
 from mimetools import Message
 from urllib import unquote
-
-import time, logging
-
+from gevent.pywsgi import _BAD_REQUEST_RESPONSE, _CONTINUE_RESPONSE, MAX_REQUEST_LINE, format_date_time
 
 
-class Transport:
+class Transport(object):
     # TODO: client
     MessageClass = Message
-    log = logging.getLogger( '%s.HTTP' % __name__ )
+    log = logging.getLogger('%s.HTTP' % __name__)
 
-    def __init__( self, handler, force_chunked=False, on_handler_fail=None ):
+    def __init__(self, handler, force_chunked=False, on_handler_fail=None):
         self.handler = handler
         self.force_chunked = force_chunked
         self.on_handler_fail = on_handler_fail
 
-    def __call__( self, env, connection ):
-        env.setdefault( 'http', {} )
+    def __call__(self, env, connection):
+        env.setdefault('http', {})
 
-        env['http'] = env_http =\
-            { 'request': { 'header': None }
-            , 'response': { 'header': None }
+        env['http'] = env_http = \
+            { 'request': {'header': None}
+            , 'response': {'header': None}
             , 'is_header_send': False
             , 'is_header_read': False
             , 'is_handler_done': False
@@ -35,13 +35,13 @@ class Transport:
             env_http['is_header_read'] = True
             env_http['mode'] = 'response'
             env_http['response']['header'] = []
-            
-            header = connection.readline( MAX_REQUEST_LINE )
+
+            header = connection.readline(MAX_REQUEST_LINE)
             if not header:
                 return
 
-            elif not self._read_request_header( env_http, connection, header ):
-                connection.write( _BAD_REQUEST_RESPONSE )
+            elif not self._read_request_header(env_http, connection, header):
+                connection.write(_BAD_REQUEST_RESPONSE)
                 connection.flush()
                 return
         else:
@@ -49,17 +49,18 @@ class Transport:
 
         has_error = False
         if not abort:
-            env_http['_read'] = read = lambda: self._read( env_http, connection )
-            env_http['_write'] = write = lambda data: self._write( env_http, connection, data )
+            env_http['_read'] = read = lambda: self._read(env_http, connection)
+            env_http['_write'] = write = lambda data: self._write(env_http, connection, data)
             try:
-                self.handler( env, read, write )
+                self.handler(env, read, write)
             except:
+                # @todo: Too broad !!!
                 env_http['has_error'] = has_error = True
                 env_http['keepalive'] = False
 
                 if self.on_handler_fail:
                     try:
-                        self.on_handler_fail( env, read, write )
+                        self.on_handler_fail(env, read, write)
                     except:
                         env_http['status'] = 500
                 else:
@@ -71,50 +72,52 @@ class Transport:
         if has_error:
             self.log.exception('Could not handle HTTP request')
 
-        self._finish_response( env, connection )
+        self._finish_response(env, connection)
 
-    def _finish_response( self, env, connection ):
+    def _finish_response(self, env, connection):
         env_http = env['http']
         env_http['is_handler_done'] = True
         if not env_http['is_header_send']:
-            self._write_nonchunked_response( env_http, connection )
+            self._write_nonchunked_response(env_http, connection)
         else:
-            connection.write(  "0\r\n\r\n"  )
+            connection.write("0\r\n\r\n")
             connection.flush()
 
         if env_http['keepalive']:
-            self( env, connection )
+            self(env, connection)
 
-    def _write( self, env, connection, data ):
-        if not isinstance( data, basestring ):
-            raise Exception('Received non-text response: %s' % data )
+    def _write(self, env, connection, data):
+        if not isinstance(data, basestring):
+            raise Exception('Received non-text response: %s' % data)
 
         if not env['is_header_send']:
             if env['mode'] == 'response' and not env['force_chunked']:
                 # more than 1 write = chunked response
-                # TODO: set env['force_chunked'] when handler sets
+                # @todo: set env['force_chunked'] when handler sets
                 # transfer-encoding header to chunked
                 if not 'result_on_hold' in env:
                     env['result_on_hold'] = data
                     return
 
-                self._send_headers( env, connection )
+                self._send_headers(env, connection)
 
                 lastresult = env.pop('result_on_hold')
-                connection.write(  "%x\r\n%s\r\n" % (len(lastresult), lastresult) )
+                connection.write("%x\r\n%s\r\n" % (len(lastresult), lastresult))
             else:
-                self._send_headers( env, connection )
+                self._send_headers(env, connection)
 
-        connection.write(  "%x\r\n%s\r\n" % (len(data), data) )
+        connection.write("%x\r\n%s\r\n" % (len(data), data))
         connection.flush()
 
-    def _read( self, env, connection ):
+    def _read(self, env, connection):
         if not env['is_header_read']:
             header = connection.readline()
-            self._read_response_header( env, header )
+            self._read_response_header(env, header) 
+            # @todo: check unresolved reference
+            
             env['is_header_read'] = True
         if env['continue']:
-            connection.write( _CONTINUE_RESPONSE )
+            connection.write(_CONTINUE_RESPONSE)
             connection.flush()
 
         if not env['content_length']:
@@ -122,13 +125,13 @@ class Transport:
                 length = connection.readline()
                 if length == '0':
                     return
-                data = connection.read( int( length,16 ) )
-                if not data or len(data)!=length:
+                data = connection.read(int(length, 16))
+                if not data or len(data) != length:
                     raise IOError("unexpected end of file while parsing chunked data")
                 yield data
         else:
-            data = connection.read( env['content_length'] )
-            if not data or len(data)!=env['content_length']:
+            data = connection.read(env['content_length'])
+            if not data or len(data) != env['content_length']:
                 raise IOError("unexpected end of file while parsing chunked data")
             yield data
 
@@ -138,11 +141,11 @@ class Transport:
         version = tuple(int(x) for x in version[5:].split("."))  # "HTTP/"
         if version[1] < 0 or version < (0, 9) or version >= (2, 0):
             return False
-        
+
         return True
 
-    def _log_error( self, err, raw_requestline=''):
-        self.log.error(err % (raw_requestline,) )
+    def _log_error(self, err, raw_requestline=''):
+        self.log.error(err % (raw_requestline,))
 
     def _read_request_header(self, env, connection, raw_requestline):
 
@@ -150,7 +153,7 @@ class Transport:
         words = requestline.split()
         if len(words) == 3:
             command, path, request_version = words
-            if not self._check_http_version( request_version ):
+            if not self._check_http_version(request_version):
                 self._log_error('Invalid http version: %r', raw_requestline)
                 return
 
@@ -161,12 +164,12 @@ class Transport:
                 return
 
             request_version = "HTTP/0.9"
-            # QQQ I'm pretty sure we can drop support for HTTP/0.9
+            # @todo: I'm pretty sure we can drop support for HTTP/0.9
         else:
             self._log_error('Invalid HTTP method: %r', raw_requestline)
             return
 
-        headers = self.MessageClass( connection, 0)
+        headers = self.MessageClass(connection, 0)
         if headers.status:
             self._log_error('Invalid headers status: %r', headers.status)
             return
@@ -200,30 +203,30 @@ class Transport:
             path, query = path.split('?', 1)
         else:
             path, query = path, ''
-        
+
         env.update\
             ( method=command
             , content_length=content_length
             , keepalive=not close_connection
-            , request_version = request_version
-            , path=unquote( path )
+            , request_version=request_version
+            , path=unquote(path)
             , query=query
             )
 
-        env['continue']=headers.get("expect",'').lower()=="continue"
+        env['continue'] = headers.get("expect", '').lower() == "continue"
         env['request']['header'] = headers
 
         return True
 
-    def _serialize_headers( self, env, connection):
+    def _serialize_headers(self, env, connection):
         keepalive = env.get('keepalive', None)
 
-        response_headers =\
-                [   ( '-'.join([x.capitalize() for x in key.split('-')]), value
-                    ) for key, value in env[ env['mode'] ]['header'] ]
+        response_headers = \
+            [( '-'.join([x.capitalize() for x in key.split('-')]), value
+             ) for key, value in env[env['mode']]['header']]
 
-        response_headers_list = [x[0] for x in response_headers ]
-        
+        response_headers_list = [x[0] for x in response_headers]
+
         if 'Date' not in response_headers_list:
             response_headers.append(('Date', format_date_time(time.time())))
 
@@ -236,13 +239,13 @@ class Transport:
             keepalive = False
 
         status = env['status']
-        if isinstance( status, int ):
+        if isinstance(status, int):
             code = ''
         elif ' ' in status:
-            status, code = status.split(' ',1)
+            status, code = status.split(' ', 1)
             status = int(status)
         else:
-            code, status  = '', int( status )
+            code, status = '', int(status)
 
         if env['status'] not in [204, 304]:
             # the reply will include message-body; make sure we have either Content-Length or chunked
@@ -251,29 +254,26 @@ class Transport:
                     response_headers.append(('Transfer-Encoding', 'chunked'))
 
         if not 'Content-Type' in response_headers_list:
-            response_headers.append(('Content-Type', 'text/html; charset=UTF-8') )
+            response_headers.append(('Content-Type', 'text/html; charset=UTF-8'))
 
-        towrite = [ '%s %s %s\r\n' % (env['request_version'], status, code ) ]
+        towrite = ['%s %s %s\r\n' % (env['request_version'], status, code )]
         for header in response_headers:
             towrite.append('%s: %s\r\n' % header)
 
         if keepalive is not None:
             env['keepalive'] = keepalive
-            
+
         return ''.join(towrite)
 
-    def _send_headers( self, env, connection ):
-        connection.write( '%s\r\n' % self._serialize_headers( env, connection ) )
+    def _send_headers(self, env, connection):
+        connection.write('%s\r\n' % self._serialize_headers(env, connection))
         env['is_header_send'] = True
-        
-    def _write_nonchunked_response( self, env, connection ):
-        content = env.pop('result_on_hold','' )
-        
+
+    def _write_nonchunked_response(self, env, connection):
+        content = env.pop('result_on_hold', '')
+
         env['response']['header'].append(('Content-Length', str(len(content))))
-        response = "%s\r\n%s"\
-            %   ( self._serialize_headers( env, connection )
-                , content
-                )
+        response = "%s\r\n%s" % (self._serialize_headers(env, connection), content)
 
         connection.flush()
-        connection.write ( response )
+        connection.write(response)

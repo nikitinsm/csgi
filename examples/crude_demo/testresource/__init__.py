@@ -2,7 +2,7 @@ from gevent import sleep, spawn
 import logging
 log = logging.getLogger(__name__)
 
-class EchoHandler:
+class EchoHandler(object):
 
     def echo( self, env, arg ):
         return arg
@@ -28,7 +28,7 @@ class EchoHandler:
             channel.emit( 'ping' )
 
 
-class Worker:
+class Worker(object):
     worker = None
 
     def _handle_cmd( self, message, channel ):

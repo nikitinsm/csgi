@@ -37,7 +37,7 @@ def pinger( channel ):
         sleep( 60 )
         channel.emit( ('ping',datetime.utcnow() ) )
 
-class push:
+class push(object):
 
     @staticmethod
     def ping( env, channel ):
@@ -59,7 +59,7 @@ class push:
         push_user( session, user )
         channel.on_close( remove_channel, session, channel )
 
-class api:
+class api(object):
 
     @staticmethod
     def login( env, name, password ):
